@@ -8,7 +8,6 @@ BINARY=chainstate
 all: libbase58/.libs/libbase58.a secp256k1/.libs/libsecp256k1.a bech32/ref/c/libbech32.a clean $(BINARY)
 
 $(BINARY): $(OBJS)
-	@echo $(OBJS)
 	$(CPP) -o $(BINARY) $(OBJS) $(LDFLAGS)
 
 %.o: %.cc

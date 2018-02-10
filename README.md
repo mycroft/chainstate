@@ -2,7 +2,11 @@
 
 It is based on bitcoin core 0.15.1 client.
 
-Some code was ripped of the client, by the way.
+The bitcoin core's chainstate stores all blockchain's UTXOs. By parsing it, you can know where bitcoins are, how much are stored on each wallets, etc.
+
+This parser handles all types of bitcoins addresses, like P2PKH (starting by 1), P2SH (starting by 1 or 3) and newer P2WPKH (bech32).
+
+Some code was ripped of the Bitcoin core client, by the way. So, this software is under MIT licence.
 
 
 # Deps
@@ -10,33 +14,54 @@ Some code was ripped of the client, by the way.
 You need to get google's leveldb with C++ headers installed, or it won't compile/link.
 
 
+# Build
+
+```base
+$ git submodule init
+$ git submodule update
+$ make
+[...]
+g++ -o chainstate chainstate.o hex.o varint.o pubkey.o -Lsecp256k1/.libs -lsecp256k1 -lcrypto -lleveldb -Llibbase58/.libs -lbase58 -Lbech32/ref/c -lbech32
+$
+```
+
+If it doesn't build, you may have additional deps configured in a submodule. You will want to add those deps into the Makefile as well. Or you can also contribute by doing a proper Makefile ;) 
+
+
 # How to run
 
+You should stop bitcoin's client or daemon before copying the chainstate:
+
 ```bash
-$ make
 $ cp -Rp ~/.bitcoin/chainstate state
-$ ./chainstate
-last block: 0000000000000000000E59C6A62136A30B0A666617DD6D28BAF8A97625152DED
-TX: EACFDCD42B27112AB6C8B435ABEC20181D05B0BA5D4F1829C002CC3EF0000000
-VA: BBF30880801D00F0B499057AF42525E3C629092D09FBCB825A992A
-IsCoinBase: 0 | Height: 498948 | Amount: 1838
-DUP HASH160 20 F0B499057AF42525E3C629092D09FBCB825A992A EQUALVERIFY CHECKSIG
+$ time ./chainstate >/tmp/cs.output 2>/tmp/cs.errors
+real    8m36.144s
+user    7m32.441s
+sys     1m3.704s
 
-TX: 0118DD986E59473732239D39CB3B8890BF32677719DD8933B05F6614F4020000
-VA: B5EB1C8820010B2A00367244680F6DA18ACD861A08F0A89CB3B4
-IsCoinBase: 0 | Height: 449294 | Amount: 132000
-HASH160 20 0B2A00367244680F6DA18ACD861A08F0A89CB3B4 EQUAL
+$ head /tmp/cs.output
+last block: 0000000000000000004e0f5635ad8b2e58ebd0a4f02c68c604d1b5697425ce72
+eacfdcd42b27112ab6c8b435abec20181d05b0ba5d4f1829c002cc3ef0000000;1NwjXC31Enh5aqGHQbCtev9B7Rhk4knuEJ;1838
+0118dd986e59473732239d39cb3b8890bf32677719dd8933b05f6614f4020000;32i3fvUTZkq2zeHBuosYDkiSCyMDhP62eo;132000
+033e83e3204b0cc28724e147f6fd140529b2537249f9c61c9de9972750030000;1KaPHfvVWNZADup3Yc26SfVdkTDvvHySVX;65279
+a53421b937be7bfe89ef6cc3f4124706b560af393b527e3e3d9d0c285b050000;1Lcd4mL7Zt53QTyR4wFJSksuyxCtfpTtws;2789
 
-TX: 033E83E3204B0CC28724E147F6FD140529B2537249F9C61C9DE9972750030000
-VA: B98276A2EC7700CBC2986FF9AED6825920AECE14AA6F5382CA5580
-IsCoinBase: 0 | Height: 475387 | Amount: 65279
-DUP HASH160 20 CBC2986FF9AED6825920AECE14AA6F5382CA5580 EQUALVERIFY CHECKSIG
+$ wc -l /tmp/cs.output /tmp/cs.errors
+  59516004 /tmp/cs.output
+    409643 /tmp/cs.errors
+  59925647 total
 
-TX: A53421B937BE7BFE89EF6CC3F4124706B560AF393B527E3E3D9D0C285B050000
-VA: B7B27280C30D00D7270DD4248ECA877673637412A8C1B8CF1FCC5C
-IsCoinBase: 0 | Height: 462073 | Amount: 2789
-DUP HASH160 20 D7270DD4248ECA877673637412A8C1B8CF1FCC5C EQUALVERIFY CHECKSIG
+$ grep 1F1tAaz5x1HUXrCNLbtMDqcw6o5GNn4xqX /tmp/cs.output | awk -F ';' '{sum += $3} END {print sum}'
+1804638579
+
 
 ```
 
+# Want to thank me ? More feature or more explanations ?
+
+Please consider helping me:
+
+- BTC: 3G734WzCrphZxN7afnrbwunZjV8MBqWUUV
+- BCH: 1MQEd3csWAVRWcgVbqk8CoZYf312VM9vp1
+- LTC: MEQA2uDajDiT3EyH1opRvNwywTDLvskLnq
 
