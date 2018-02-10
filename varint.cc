@@ -2,44 +2,41 @@
 
 using namespace std;
 
-typedef unsigned int uint32_t;
-typedef unsigned long uint64_t;
+uint64_t read_varint(uint64_t n)
+{
+    int len = sizeof(n);
+    uint64_t out = 0;
+    while (len >= 0) {
+        unsigned char ch = ((unsigned char*)&n)[(len--)-1];
+        if (len < 0) {
+            break;
+        }
 
-uint32_t read_varint(uint32_t n)            
-{                         
-    int len = sizeof(n);  
-    int out = 0;          
-    while (len >= 0) {    
-        unsigned char ch = ((unsigned char*)&n)[(len--)-1];                                              
-        if (len < 0) {    
-            break;        
-        }                 
+        out = (out << 7) | (ch & 0x7f);
+        if (ch & 0x80) {
+            out ++;
+        }
+    }
 
-        out = (out << 7) | (ch & 0x7f);             
-        if (ch & 0x80) {  
-            out ++;       
-        }                 
-    }                     
+    return out;
+}
 
-    return out;           
-}                         
-
-uint32_t get_next_varint(string& str)
+uint64_t get_next_varint(string& str)
 {
     unsigned char c;
     uint32_t idx = 0;
-    uint32_t n = 0;
+    uint64_t n = 0;
 
     do {
         c = str[idx];
-        n |= c;
+        n += c;
 
         if (c < 0x80) {
             str = str.substr(++idx);
             return read_varint(n);
         } else {
             idx ++;
-            n <<= 8;
+            n *= 256;
         }
     } while(true);
 }
@@ -69,4 +66,3 @@ uint64_t decompress_amount(uint64_t x)
     }
     return n;
 }
-

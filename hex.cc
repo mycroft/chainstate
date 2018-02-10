@@ -4,7 +4,7 @@
 
 std::string string_to_hex(const std::string& input)
 {
-    static const char* const lut = "0123456789ABCDEF";
+    static const char* const lut = "0123456789abcdef";
     size_t len = input.length();
 
     std::string output;
@@ -20,7 +20,7 @@ std::string string_to_hex(const std::string& input)
 
 std::string hex_to_string(const std::string& input)
 {
-    static const char* const lut = "0123456789ABCDEF";
+    static const char* const lut = "0123456789abcdef";
     size_t len = input.length();
     if (len & 1) throw std::invalid_argument("odd length");
 
@@ -40,5 +40,3 @@ std::string hex_to_string(const std::string& input)
     }
     return output;
 }
-
-

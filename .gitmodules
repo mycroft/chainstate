@@ -1,0 +1,10 @@
+[submodule "secp256k1"]
+	path = secp256k1
+	url = https://github.com/bitcoin-core/secp256k1.git
+[submodule "libbase58"]
+	path = libbase58
+	url = https://github.com/luke-jr/libbase58
+	branch = master
+[submodule "bech32"]
+	path = bech32
+	url = https://github.com/sipa/bech32
