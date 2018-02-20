@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include <leveldb/db.h>
 
@@ -31,22 +32,66 @@ int main(void)
     leveldb::Status status = leveldb::DB::Open(options, "state", &db);
     assert(status.ok());
 
+    // Getting obfuscation key
+
+    // XXX We should compute this...
+    const string OBFUSCATE_KEY_KEY("\016\000obfuscate_key\79", 15);
+    const unsigned int OBFUSCATE_KEY_NUM_BYTES = 8;
+    string obfuscate_key_str;
+    vector<unsigned char>obfuscate_key = vector<unsigned char>(OBFUSCATE_KEY_NUM_BYTES, '\000');
+
+    cout << string_to_hex(OBFUSCATE_KEY_KEY) << endl;
+
+    leveldb::Status s = db->Get(leveldb::ReadOptions(), OBFUSCATE_KEY_KEY, &obfuscate_key_str);
+    if (s.ok()) {
+        // First byte: key size.
+        obfuscate_key_str = obfuscate_key_str.substr(1);
+        cerr << "using obfuscation key " << string_to_hex(obfuscate_key_str) << endl;
+        obfuscate_key = vector<unsigned char>(obfuscate_key_str.begin(), obfuscate_key_str.end());
+    } else {
+        if (s.IsNotFound()) {
+            cerr << "obfuscation key not found... Please check bitcoin's log and report if bitcoin's obfuscation key not 0000000000000000." << endl;
+        }
+    }
+
     leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         string idx = it->key().ToString();
         string value = it->value().ToString();
+        string tx;
+        int txn = 0;
 
         if (idx[0] == 'B') {
             reverse(value.begin(), value.end());
-            cout << "last block: " << string_to_hex(value) << endl;
+            if (dump)
+                cout << "last block: " << string_to_hex(value) << endl << endl;
+
+            continue;
+        }
+
+        if (idx[0] != 'C') {
+            cerr << "Record type " << int(idx[0]) << " is not handled." << endl;
+            cerr << "Index: " << string_to_hex(idx) << endl;
+            cerr << "Value: " << string_to_hex(value) << endl << endl;
             continue;
         }
 
         assert(idx[0] == 'C');
 
-        string tx = idx.substr(1, 32);
-        // XXX: There may be stuff after the last TX char, need to find out why. TX output number ?
+        // Parsing key/idx.
+
+        tx = idx.substr(1, 32);
         reverse(tx.begin(), tx.end());
+
+        if (idx.length() > 32) {
+            string tx_num = idx.substr(33);
+            txn = get_next_varint(tx_num);
+        }
+
+        // Parsing value.
+        for (size_t i = 0; i < value.length(); i ++) {
+            value[i] ^= obfuscate_key[i % obfuscate_key.size()];
+        }
 
         code = get_next_varint(value);
         nHeight = code >> 1;
@@ -55,7 +100,7 @@ int main(void)
         amount = decompress_amount(get_next_varint(value));
 
         if (dump) {
-            cout << "TX: " << string_to_hex(tx) << endl;
+            cout << "TX: " << string_to_hex(tx) << ":" << txn << endl;
             cout << "VA: " << string_to_hex(value) << endl;
 
             cout <<
@@ -69,7 +114,11 @@ int main(void)
 
         // Uncompress Script
         // see src/compressor.cpp:88
-       script_type = value[0];
+        script_type = value[0];
+
+        if (dump) {
+            cout << "Script type: " << (int)script_type << endl;
+        }
 
         // Do not assert as there is a few invalid scripts out there..
         // assert(script_type >= 0x00 && script_type <= 0x05);
@@ -123,7 +172,6 @@ int main(void)
                 if (addr == string()) {
                     cout << "Invalid segwit ?" << endl;
                     cout << "TX: " << string_to_hex(tx) << endl;
-                    exit(0);
                 }
 
                 if (dump) {
