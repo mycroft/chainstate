@@ -50,10 +50,11 @@ echo "Generating final balances..."
 cut -d';' -f2,3 cs.out | \
     sort | \
     awk -F ';' '{ if ($1 != cur) { if (cur != "") { print cur ";" sum }; sum = 0; cur = $1 }; sum += $2 } END { print cur ";" sum }' \
-    > ${BALANCES_FILE}
+    > ${BALANCES_FILE}.tmp
 
 echo "Sorting balances"
-sort -t ';' -k 2 -g -r ${BALANCES_FILE}
+sort -t ';' -k 2 -g -r ${BALANCES_FILE}.tmp > ${BALANCES_FILE}
+rm -f ${BALANCES_FILE}.tmp
 
 echo "Compressing balances"
 gzip ${BALANCES_FILE}
