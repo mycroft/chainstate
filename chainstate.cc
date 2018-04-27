@@ -11,7 +11,13 @@
 
 using namespace std;
 
-int main(void)
+typedef struct prefix {
+    const char *name;
+    unsigned char pubkey_prefix;
+    unsigned char script_prefix;
+} prefix_t;
+
+int main(int argc, char **argv)
 {
     leveldb::DB* db;
     leveldb::Options options;
@@ -29,18 +35,50 @@ int main(void)
 
     options.create_if_missing = false;
 
+    // Can be found in src/chainparams.cpp, base58Prefixes
+    prefix_t prefixes[] = {
+        { "bitcoin", 0, 5 },
+        { "bitcoin-testnet", 111, 196 },
+        { "litecoin", 48, 50 }, // Also uses 48, 50
+        { "litecoin-testnet", 111, 58 }, // Also uses 111, 58
+        { "dashcore", 76, 16 },
+        { "dashcore-testnet", 140, 19 },
+        { NULL, 255, 255 }
+    };
+
+    prefix_t current_prefix = prefixes[0];
+
+    if (argc == 2) {
+        int idx = 0;
+
+        do {
+            if (0 == strcmp(argv[1], current_prefix.name)) {
+                break;
+            }
+
+            idx ++;
+            current_prefix = prefixes[idx];
+
+        } while (current_prefix.name != NULL);
+
+        if (current_prefix.name == NULL) {
+            cerr << "Could not find coin named " << argv[1] << endl;
+            exit(1);
+        }
+    }
+
     leveldb::Status status = leveldb::DB::Open(options, "state", &db);
     assert(status.ok());
 
     // Getting obfuscation key
-
-    // XXX We should compute this...
     const string OBFUSCATE_KEY_KEY("\016\000obfuscate_key\79", 15);
     const unsigned int OBFUSCATE_KEY_NUM_BYTES = 8;
     string obfuscate_key_str;
     vector<unsigned char>obfuscate_key = vector<unsigned char>(OBFUSCATE_KEY_NUM_BYTES, '\000');
 
-    cout << string_to_hex(OBFUSCATE_KEY_KEY) << endl;
+    if (dump) {
+        cout << "Obfuscation key: " << string_to_hex(OBFUSCATE_KEY_KEY) << endl;
+    }
 
     leveldb::Status s = db->Get(leveldb::ReadOptions(), OBFUSCATE_KEY_KEY, &obfuscate_key_str);
     if (s.ok()) {
@@ -63,8 +101,7 @@ int main(void)
 
         if (idx[0] == 'B') {
             reverse(value.begin(), value.end());
-            if (dump)
-                cout << "last block: " << string_to_hex(value) << endl << endl;
+            cerr << "last block: " << string_to_hex(value) << endl << endl;
 
             continue;
         }
@@ -128,7 +165,7 @@ int main(void)
         switch(script_type) {
             case 0x00:
                 assert(value.size() == 20);
-                addr = get_addr('\000', value);
+                addr = get_addr(current_prefix.pubkey_prefix, value);
                 if (dump) {
                     cout << "DUP HASH160 " << value.size() << " " << addr << " EQUALVERIFY CHECKSIG" << endl; // P2PKH
                 }
@@ -136,7 +173,7 @@ int main(void)
 
             case 0x01:
                 assert(value.size() == 20);
-                addr = get_addr('\005', value);
+                addr = get_addr(current_prefix.script_prefix, value);
 
                 if (dump) {
                     cout << "HASH160 " << value.size() << " " << addr << " EQUAL" << endl; // P2SH
@@ -146,7 +183,7 @@ int main(void)
             case 0x02:
             case 0x03:
                 assert(value.size() == 32);
-                addr = get_addr('\000', str_to_ripesha(old_value));
+                addr = get_addr(current_prefix.pubkey_prefix, str_to_ripesha(old_value));
 
                 if (dump) {
                     cout << "PUSHDATA(33) " << addr << " CHECKSIG" << endl; // P2PK
@@ -157,7 +194,7 @@ int main(void)
             case 0x05:
                 memset(pub, 0, PUBLIC_KEY_SIZE);
                 pubkey_decompress(script_type, value.c_str(), (unsigned char*) &pub, &publen);
-                addr = get_addr('\000', str_to_ripesha(string((const char*)pub, PUBLIC_KEY_SIZE)));
+                addr = get_addr(current_prefix.pubkey_prefix, str_to_ripesha(string((const char*)pub, PUBLIC_KEY_SIZE)));
 
                 if (dump) {
                     cout << "PUSHDATA(65) " << addr << " CHECKSIG" << endl; // P2PK
@@ -189,7 +226,7 @@ int main(void)
         }
 
         if (addr != string()) {
-            cout << string_to_hex(tx) << ";" << addr << ";" << amount << endl;
+            cout << string_to_hex(tx) << ";" << txn << ";" << addr << ";" << amount << endl;
         } else {
             cout << string_to_hex(tx) << ";Invalid address or lost;" << amount << endl;
         }
