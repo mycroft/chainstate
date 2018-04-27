@@ -17,7 +17,7 @@ libbase58/.libs/libbase58.a:
 	cd libbase58 && ./autogen.sh && ./configure --enable-static --enable-shared=no && make
 
 secp256k1/.libs/libsecp256k1.a:
-	cd secp256k1 && ./autogen.sh && ./configure --enable-static --enable-shared=no && make
+	cd secp256k1 && ./autogen.sh && ./configure --enable-static --enable-shared=no --with-bignum=no && make
 
 bech32/ref/c/libbech32.a:
 	cd bech32/ref/c && $(CPP) -c -o segwit_addr.o segwit_addr.c && ar rcs libbech32.a segwit_addr.o
