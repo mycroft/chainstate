@@ -13,8 +13,10 @@ using namespace std;
 
 typedef struct prefix {
     const char *name;
-    unsigned char pubkey_prefix;
-    unsigned char script_prefix;
+    unsigned char pubkey_prefix[4];
+    size_t pubkey_prefix_size;
+    unsigned char script_prefix[4];
+    size_t script_prefix_size;
 } prefix_t;
 
 int main(int argc, char **argv)
@@ -33,17 +35,25 @@ int main(int argc, char **argv)
     unsigned char script_type;
     string old_value;
 
+    bool ret;
+
     options.create_if_missing = false;
 
     // Can be found in src/chainparams.cpp, base58Prefixes
     prefix_t prefixes[] = {
-        { "bitcoin", 0, 5 },
-        { "bitcoin-testnet", 111, 196 },
-        { "litecoin", 48, 50 }, // Also uses 48, 50
-        { "litecoin-testnet", 111, 58 }, // Also uses 111, 58
-        { "dashcore", 76, 16 },
-        { "dashcore-testnet", 140, 19 },
-        { NULL, 255, 255 }
+        { "bitcoin",                { 0x00 }, 1, { 0x05 }, 1 },
+        { "bitcoin-testnet",        { 0x6f }, 1, { 0xc4 }, 1 },
+        { "bitcoin-abc",            { 0x00 }, 1, { 0x05 }, 1 },
+        { "bitcoin-abc-testnet",    { 0x6f }, 1, { 0xc4 }, 1 },
+        { "litecoin",               { 0x30 }, 1, { 0x32 }, 1 }, // Also uses 48, 50
+        { "litecoin-testnet",       { 0x6f }, 1, { 0x3a }, 1 }, // Also uses 111, 58
+        { "dashcore",               { 0x4c }, 1, { 0x10 }, 1 },
+        { "dashcore-testnet",       { 0x8c }, 1, { 0x13 }, 1 },
+        { "bitcoin-private",        { 0x13, 0x25 }, 2, { 0x13, 0xaf }, 2 }, // b1 & bx
+        { "bitcoin-private",        { 0x19, 0x57 }, 2, { 0x19, 0xe0 }, 2 }, // n1 & nx
+        { "zcash",                  { 0x1c, 0xb8 }, 2, { 0x1c, 0xbd }, 2 }, // t1 & t3
+        { "zcash-testnet",          { 0x1d, 0x25 }, 2, { 0x1c, 0xba }, 2 }, // tm & t2
+        { NULL, {}, 0 , {}, 0 }
     };
 
     prefix_t current_prefix = prefixes[0];
@@ -106,14 +116,124 @@ int main(int argc, char **argv)
             continue;
         }
 
-        if (idx[0] != 'C') {
+        if (idx[0] == 65 || idx[0] == 97 || idx[0] == 115) {
+            // BitcoinPrivate
+            continue;
+        }
+
+        if (idx[0] != 'C' && idx[0] != 'c') {
             cerr << "Record type " << int(idx[0]) << " is not handled." << endl;
             cerr << "Index: " << string_to_hex(idx) << endl;
             cerr << "Value: " << string_to_hex(value) << endl << endl;
             continue;
         }
 
-        assert(idx[0] == 'C');
+        assert(idx[0] == 'C' || idx[0] == 'c');
+
+        if(idx[0] == 'c') {
+            // old fashion parsing coins (dev for bitcoin-private)
+            // cout << string_to_hex(idx) << endl;
+            tx = idx.substr(1, 32);
+            reverse(tx.begin(), tx.end());
+
+            string orig_value = value;
+
+            uint64_t version = get_next_varint(value);
+            uint64_t code = get_next_varint(value);
+
+            bool isCoinbase = code & 0x01;
+            bool isVout0NotSpent = code & 0x02;
+            bool isVout1NotSpent = code & 0x04;
+
+            bool has_error = false;
+
+            uint64_t unspentnessbytes = code >> 4;
+            unsigned int nMaskCode = (code / 8) + ((code & 6) != 0 ? 0 : 1);
+
+            if (!isVout0NotSpent && !isVout1NotSpent) {
+                unspentnessbytes ++;
+            }
+
+            if (dump) {
+                cout << "========================================================================================" << endl;
+                cout << "TX: " << string_to_hex(tx) << " | Version: " << (int)version << " | maskcode: " << (int)nMaskCode << endl;
+                cout << "coinbase: " << isCoinbase << " / " <<  isVout0NotSpent << "|" << isVout1NotSpent << " / N=" << (int)unspentnessbytes << endl;
+                cout << "Value: " << string_to_hex(orig_value) << endl;
+            }
+
+            while (nMaskCode > 0) {
+                if (value[0] != 0) {
+                    nMaskCode --;
+                }
+
+                value = value.substr(1);
+            }
+
+            while(value.size() > 21 && false == has_error) {
+                unsigned char type;
+                // read vout (compact amount representation / special txout type / address uint160)
+
+                if (dump) {
+                    cout << string_to_hex(value) << endl;
+                }
+                amount = decompress_amount(get_next_varint(value));
+
+                if(value.size() < 1) {
+                    cerr << "ERROR: Can't read type. String too small while reading TX " << string_to_hex(tx) << endl;
+                    break;
+                }
+
+                // special txout type pay-to-pubkey-hash
+                type = value[0];
+
+                if (dump) {
+                    cout << "Amount: " << amount << " | Type: " << (int)type << endl;
+                    // cout << string_to_hex(value) << endl;
+                }
+
+                switch(type) {
+                    case 0x00:
+                        assert(value.size() >= 20);
+                        value = value.substr(1);
+                        addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, value.substr(0, 20));
+                        value = value.substr(20);
+                        break;
+                    case 0x01:
+                        assert(value.size() >= 20);
+                        value = value.substr(1);
+                        addr = get_addr(current_prefix.script_prefix, current_prefix.script_prefix_size, value.substr(0, 20));
+                        value = value.substr(20);
+                        break;
+                    case 0x02:
+                    case 0x03:
+                        assert(value.size() >= 33);
+                        addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, str_to_ripesha(value, 33));
+                        value = value.substr(33);
+                        break;
+                    case 0x04:
+                    case 0x05:
+                        assert(value.size() >= 33);
+                        value = value.substr(1);
+                        memset(pub, 0, PUBLIC_KEY_SIZE);
+                        ret = pubkey_decompress(type, value.c_str(), (unsigned char*) &pub, &publen);
+                        if(ret == false) {
+                            cerr << "Could not parse compressed public key." << endl;
+                        }
+
+                        addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, str_to_ripesha(string((const char*)pub, PUBLIC_KEY_SIZE)));
+                        value = value.substr(33);
+                        break;
+                    default:
+                        cerr << "ERROR type: " << (int)type << " on TX: " << string_to_hex(tx) << " | Version: " << (int)version << endl;
+                        has_error = true;
+                        break;
+                }
+
+                cout << string_to_hex(tx) << ";TBD;" << addr << ";" << amount << endl;
+            }
+
+            continue;
+        }
 
         // Parsing key/idx.
 
@@ -165,7 +285,7 @@ int main(int argc, char **argv)
         switch(script_type) {
             case 0x00:
                 assert(value.size() == 20);
-                addr = get_addr(current_prefix.pubkey_prefix, value);
+                addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, value);
                 if (dump) {
                     cout << "DUP HASH160 " << value.size() << " " << addr << " EQUALVERIFY CHECKSIG" << endl; // P2PKH
                 }
@@ -173,7 +293,7 @@ int main(int argc, char **argv)
 
             case 0x01:
                 assert(value.size() == 20);
-                addr = get_addr(current_prefix.script_prefix, value);
+                addr = get_addr(current_prefix.script_prefix, current_prefix.script_prefix_size, value);
 
                 if (dump) {
                     cout << "HASH160 " << value.size() << " " << addr << " EQUAL" << endl; // P2SH
@@ -183,7 +303,7 @@ int main(int argc, char **argv)
             case 0x02:
             case 0x03:
                 assert(value.size() == 32);
-                addr = get_addr(current_prefix.pubkey_prefix, str_to_ripesha(old_value));
+                addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, str_to_ripesha(old_value));
 
                 if (dump) {
                     cout << "PUSHDATA(33) " << addr << " CHECKSIG" << endl; // P2PK
@@ -194,7 +314,7 @@ int main(int argc, char **argv)
             case 0x05:
                 memset(pub, 0, PUBLIC_KEY_SIZE);
                 pubkey_decompress(script_type, value.c_str(), (unsigned char*) &pub, &publen);
-                addr = get_addr(current_prefix.pubkey_prefix, str_to_ripesha(string((const char*)pub, PUBLIC_KEY_SIZE)));
+                addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, str_to_ripesha(string((const char*)pub, PUBLIC_KEY_SIZE)));
 
                 if (dump) {
                     cout << "PUSHDATA(65) " << addr << " CHECKSIG" << endl; // P2PK

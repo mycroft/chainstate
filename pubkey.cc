@@ -11,7 +11,7 @@
 
 using namespace std;
 
-void pubkey_decompress(unsigned int size, const char *input, unsigned char *pub, size_t *publen)
+bool pubkey_decompress(unsigned int size, const char *input, unsigned char *pub, size_t *publen)
 {
     secp256k1_context* secp256k1_context_verify = nullptr;
     secp256k1_pubkey pubkey;
@@ -24,14 +24,15 @@ void pubkey_decompress(unsigned int size, const char *input, unsigned char *pub,
     secp256k1_context_verify = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
 
     if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, 33)) {
-        cerr << "Could not parse..." << endl;
+        secp256k1_context_destroy(secp256k1_context_verify);
+        return false;
     }
 
     secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, publen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
 
     secp256k1_context_destroy(secp256k1_context_verify);
 
-    return;
+    return true;
 }
 
 void sha256(unsigned char *input, size_t s, unsigned char output[SHA256_DIGEST_LENGTH])
@@ -50,13 +51,15 @@ void ripemd160(unsigned char *input, size_t s, unsigned char output[RIPEMD160_DI
     RIPEMD160_Final(output, &ctx);
 }
 
-string get_addr(unsigned char networkbit, string value)
+string get_addr(unsigned char prefix[4], size_t prefix_size, string value)
 {
     char b58[1024];
     size_t b58len = 1024;
     unsigned char output[SHA256_DIGEST_LENGTH];
 
-    value.insert(0, 1, networkbit);
+    for(size_t i = 0;i < prefix_size; i ++) {
+        value.insert(i, 1, prefix[i]);
+    }
 
     sha256((unsigned char*)value.c_str(), value.size(), output);
     sha256(output, SHA256_DIGEST_LENGTH, output);
@@ -68,17 +71,22 @@ string get_addr(unsigned char networkbit, string value)
     return string(b58);
 }
 
-string str_to_ripesha(string value)
+string str_to_ripesha(string value, int size)
 {
     string v = value;
 
     unsigned char output[SHA256_DIGEST_LENGTH];
     unsigned char ripe_output[RIPEMD160_DIGEST_LENGTH];
 
-    sha256((unsigned char*)v.c_str(), v.size(), output);
+    sha256((unsigned char*)v.c_str(), size, output);
     ripemd160(output, SHA256_DIGEST_LENGTH, ripe_output);
 
     return string((const char*)ripe_output, RIPEMD160_DIGEST_LENGTH);
+}
+
+string str_to_ripesha(string value)
+{
+    return str_to_ripesha(value, value.size());
 }
 
 string rebuild_bech32(string value)

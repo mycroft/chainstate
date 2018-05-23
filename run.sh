@@ -1,56 +1,30 @@
 #!/bin/sh
 
-COIN=bitcoin
-USE_TESTNET=0
-
-if test ${USE_TESTNET} -eq 1; then
-    COIN_NAME=${COIN}-testnet
-else
-    COIN_NAME=${COIN}
-fi
-
-PIDFILE=$HOME/var/pid/${COIN_NAME}.pid
-BTC_SCRIPT=$HOME/bin/${COIN_NAME}.sh
 SCRIPT=$(cd $(dirname $0); /bin/pwd)
-
-BALANCES_FILE=balances.out
-
-if test ! -e ${PIDFILE}; then
-    echo "pid file doesn't exist."
-    exit 1
-fi
-
-cd ${SCRIPT}
-pid=$(cat ${PIDFILE})
+COIN=${1:-bitcoin}
+COINDAEMON=${2:-$COIN}
+COINDIR=${3:-$COIN}
+RANDOMSTR=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)
+BALANCES_FILE=balances-${COIN}-$(TZ=UTC date +%Y%m%d-%H%M)-${RANDOMSTR}
+BALANCES_FILE_SAMPLE=balances-${COIN}-$(TZ=UTC date +%Y%m%d-%H%M)-sample
 
 echo "Cleaning existing files..."
-rm -f cs.out cs.err ${BALANCES_FILE}.gz
+rm -f state cs.out cs.err
 
-ps ${pid} >/dev/null
-if test $? -eq 0; then
-    echo "Stopping ${COIN}d..."
-    kill -2 ${pid}
-fi
-
-while ps ${pid} >/dev/null; do
-    sleep 1
-done
+echo "Stopping ${COINDAEMON}..."
+systemctl --user stop ${COINDAEMON}
 
 echo "Copying chainstate..."
-if test ${USE_TESTNET} -eq 1; then
-    cp -Rp ~/.${COIN}/testnet3/chainstate state
-else
-    cp -Rp ~/.${COIN}/chainstate state
-fi
+cp -Rp ~/.${COINDIR}/chainstate state
 
 echo "Syncing..."
 sync
 
-echo "Copying done. Restarting ${COIN}d..."
-${BTC_SCRIPT}
+echo "Copying done. Restarting ${COINDAEMON}..."
+systemctl --user start ${COINDAEMON}
 
 echo "Running chainstate parser..."
-./chainstate ${COIN_NAME} >cs.out 2>cs.err
+./chainstate ${COIN} >cs.out 2>cs.err
 
 echo "Generated output:"
 ls -l cs.out cs.err
@@ -66,13 +40,17 @@ cut -d';' -f3,4 cs.out | \
     awk -F ';' '{ if ($1 != cur) { if (cur != "") { print cur ";" sum }; sum = 0; cur = $1 }; sum += $2 } END { print cur ";" sum }' | \
     sort -t ';' -k 2 -g -r > ${BALANCES_FILE}
 
+head -100 ${BALANCES_FILE} | sed -e 's/..................;/\.\.\.\.\.\.\[truncated\]\.\.\.\.\.\.;/' > ${BALANCES_FILE_SAMPLE}
+
 echo "Compressing balances"
 gzip ${BALANCES_FILE}
+gzip ${BALANCES_FILE_SAMPLE}
 
 echo "Generated archive:"
 ls -l ${BALANCES_FILE}.gz
+ls -l ${BALANCES_FILE_SAMPLE}.gz
 
 echo "Cleaning state"
-rm -fr state
+rm -fr state cs.out cs.err
 
 exit 0
