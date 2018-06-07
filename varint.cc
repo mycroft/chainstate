@@ -1,4 +1,5 @@
 #include <string>
+#include "varint.hh"
 
 using namespace std;
 

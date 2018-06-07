@@ -1,5 +1,5 @@
 CPP=g++
-CPPFLAGS=-Wall -I. -Ilibbase58 -Isecp256k1/include -Ibech32/ref/c
+CPPFLAGS=-Wall -I. -Ilibbase58 -Isecp256k1/include -Ibech32/ref/c -std=c++0x
 LDFLAGS=-Lsecp256k1/.libs -lsecp256k1 -lcrypto -lleveldb -Llibbase58/.libs -lbase58 -Lbech32/ref/c -lbech32
 SRCS=chainstate.cc hex.cc varint.cc pubkey.cc
 OBJS=$(SRCS:.cc=.o)
