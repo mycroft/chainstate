@@ -50,9 +50,10 @@ int main(int argc, char **argv)
         { "dashcore",               { 0x4c }, 1, { 0x10 }, 1 },
         { "dashcore-testnet",       { 0x8c }, 1, { 0x13 }, 1 },
         { "bitcoin-private",        { 0x13, 0x25 }, 2, { 0x13, 0xaf }, 2 }, // b1 & bx
-        { "bitcoin-private",        { 0x19, 0x57 }, 2, { 0x19, 0xe0 }, 2 }, // n1 & nx
+        { "bitcoin-private-testnet",        { 0x19, 0x57 }, 2, { 0x19, 0xe0 }, 2 }, // n1 & nx
         { "zcash",                  { 0x1c, 0xb8 }, 2, { 0x1c, 0xbd }, 2 }, // t1 & t3
         { "zcash-testnet",          { 0x1d, 0x25 }, 2, { 0x1c, 0xba }, 2 }, // tm & t2
+        { "bitcoinz",               { 0x1c, 0xb8 }, 2, { 0x1c, 0xbd }, 2 },
         { NULL, {}, 0 , {}, 0 }
     };
 
