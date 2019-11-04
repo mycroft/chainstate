@@ -49,6 +49,7 @@ int main(int argc, char **argv)
         { "litecoin-testnet",       { 0x6f }, 1, { 0x3a }, 1 }, // Also uses 111, 58
         { "dashcore",               { 0x4c }, 1, { 0x10 }, 1 },
         { "dashcore-testnet",       { 0x8c }, 1, { 0x13 }, 1 },
+        { "dogecoin",               { 0x1e }, 1, { 0x16 }, 1 },
         { "bitcoin-private",        { 0x13, 0x25 }, 2, { 0x13, 0xaf }, 2 }, // b1 & bx
         { "bitcoin-private-testnet",        { 0x19, 0x57 }, 2, { 0x19, 0xe0 }, 2 }, // n1 & nx
         { "zcash",                  { 0x1c, 0xb8 }, 2, { 0x1c, 0xbd }, 2 }, // t1 & t3
