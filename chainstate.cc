@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 
     bool ret;
 
-    options.create_if_missing = false;
+    options.create_if_missing = true;
 
     // Can be found in src/chainparams.cpp, base58Prefixes
     prefix_t prefixes[] = {
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
         }
     }
 
-    leveldb::Status status = leveldb::DB::Open(options, "state", &db);
+    leveldb::Status status = leveldb::DB::Open(options, "./state", &db);
     assert(status.ok());
 
     // Getting obfuscation key
