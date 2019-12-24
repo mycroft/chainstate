@@ -325,12 +325,16 @@ int main(int argc, char **argv)
 
             case 0x1c:
             case 0x28:
+                addr = string();
+
                 // P2WPKH / P2WSH
-                addr = rebuild_bech32(value);
+                if(value[0] == 0x00 && ((script_type == 0x1c && value.size() == 22) || (script_type == 0x28 && value.size() == 34))) {
+                    addr = rebuild_bech32(value);
+                }
 
                 if (addr == string()) {
-                    cout << "Invalid segwit ?" << endl;
-                    cout << "TX: " << string_to_hex(tx) << endl;
+                    cerr << "Invalid segwit ?" << endl;
+                    cerr << "TX: " << string_to_hex(tx) << endl;
                 }
 
                 if (dump) {
@@ -350,7 +354,7 @@ int main(int argc, char **argv)
         if (addr != string()) {
             cout << string_to_hex(tx) << ";" << txn << ";" << addr << ";" << amount << endl;
         } else {
-            cout << string_to_hex(tx) << ";Invalid address or lost;" << amount << endl;
+            cerr << string_to_hex(tx) << ";Invalid address or lost;" << amount << endl;
         }
     }
 
