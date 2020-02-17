@@ -35,8 +35,6 @@ int main(int argc, char **argv)
     unsigned char script_type;
     string old_value;
 
-    int count = 0;
-
     bool ret;
 
     options.create_if_missing = false;
@@ -138,10 +136,11 @@ int main(int argc, char **argv)
 
         if(idx[0] == 'c') {
             // old fashion parsing coins (dev for bitcoin-private)
-            cout << "k: " << string_to_hex(idx) << endl;
-            cout << "v: " << string_to_hex(value) << endl;
-            if (count ++ == 20) { exit(1); }
-            else { continue; }
+
+            // Parsing value.
+            for (size_t i = 0; i < value.length(); i ++) {
+                value[i] ^= obfuscate_key[i % obfuscate_key.size()];
+            }
 
             tx = idx.substr(1, 32);
             reverse(tx.begin(), tx.end());
