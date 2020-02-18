@@ -9,6 +9,8 @@
 #include "pubkey.hh"
 #include "varint.hh"
 
+#define DEFAULT_ADDRESS "Unknown Address"
+
 using namespace std;
 
 typedef struct prefix {
@@ -30,7 +32,7 @@ int main(int argc, char **argv)
     unsigned char pub[PUBLIC_KEY_SIZE];
     size_t publen = PUBLIC_KEY_SIZE;
 
-    string addr;
+    string addr = DEFAULT_ADDRESS;
     bool dump = true;
     unsigned char script_type;
     string old_value;
@@ -45,8 +47,8 @@ int main(int argc, char **argv)
         { "bitcoin-testnet",        { 0x6f }, 1, { 0xc4 }, 1 },
         { "bitcoin-abc",            { 0x00 }, 1, { 0x05 }, 1 },
         { "bitcoin-abc-testnet",    { 0x6f }, 1, { 0xc4 }, 1 },
-        { "bitcoin-sv",            { 0x00 }, 1, { 0x05 }, 1 },
-        { "bitcoin-sv-testnet",    { 0x6f }, 1, { 0xc4 }, 1 },
+        { "bitcoin-sv",             { 0x00 }, 1, { 0x05 }, 1 },
+        { "bitcoin-sv-testnet",     { 0x6f }, 1, { 0xc4 }, 1 },
         { "litecoin",               { 0x30 }, 1, { 0x32 }, 1 }, // Also uses 48, 50
         { "litecoin-testnet",       { 0x6f }, 1, { 0x3a }, 1 }, // Also uses 111, 58
         { "dashcore",               { 0x4c }, 1, { 0x10 }, 1 },
@@ -135,8 +137,9 @@ int main(int argc, char **argv)
         assert(idx[0] == 'C' || idx[0] == 'c');
 
         if(idx[0] == 'c') {
-            // old fashion parsing coins (dev for bitcoin-private)
+            std::vector<bool> vAvail(2, false);
 
+            // old fashion parsing coins (dev for bitcoin-private or dogecoin)
             // Parsing value.
             for (size_t i = 0; i < value.length(); i ++) {
                 value[i] ^= obfuscate_key[i % obfuscate_key.size()];
@@ -154,37 +157,48 @@ int main(int argc, char **argv)
             bool isVout0NotSpent = code & 0x02;
             bool isVout1NotSpent = code & 0x04;
 
+            vAvail[0] = isVout0NotSpent;
+            vAvail[1] = isVout1NotSpent;
+
             bool has_error = false;
 
-            uint64_t unspentnessbytes = code >> 4;
             unsigned int nMaskCode = (code / 8) + ((code & 6) != 0 ? 0 : 1);
+            uint64_t unspentnessbytes = code >> 3;
 
+            // In case both bit 1 & bit 2 are unset, they encode N - 1.
             if (!isVout0NotSpent && !isVout1NotSpent) {
                 unspentnessbytes ++;
             }
 
             if (dump) {
                 cout << "========================================================================================" << endl;
-                cout << "TX: " << string_to_hex(tx) << " | Version: " << (int)version << " | maskcode: " << (int)nMaskCode << endl;
+                cout << "TX: " << string_to_hex(tx) << " | Version: " << (int)version << " | code: " << (int)code << " | maskcode: " << (int)nMaskCode << endl;
                 cout << "coinbase: " << isCoinbase << " / " <<  isVout0NotSpent << "|" << isVout1NotSpent << " / N=" << (int)unspentnessbytes << endl;
                 cout << "Value: " << string_to_hex(orig_value) << endl;
             }
 
             while (nMaskCode > 0) {
-                if (value[0] != 0) {
-                    nMaskCode --;
+                unsigned char chAvail = 0;
+                chAvail = value[0];
+                value = value.substr(1);
+
+                for (unsigned int p = 0; p < 8; p++) {
+                    bool f = (chAvail & (1 << p)) != 0;
+                    vAvail.push_back(f);
                 }
 
-                value = value.substr(1);
+                if (chAvail != 0)
+                    nMaskCode --;
             }
+
+            uint64_t vout_idx = 0;
 
             while(value.size() > 21 && false == has_error) {
                 unsigned char type;
                 // read vout (compact amount representation / special txout type / address uint160)
 
-                if (dump) {
-                    cout << string_to_hex(value) << endl;
-                }
+                for(; vAvail[vout_idx] == 0; ++vout_idx);
+
                 amount = decompress_amount(get_next_varint(value));
 
                 if(value.size() < 1) {
@@ -232,15 +246,45 @@ int main(int argc, char **argv)
                         addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, str_to_ripesha(string((const char*)pub, PUBLIC_KEY_SIZE)));
                         value = value.substr(33);
                         break;
+                    case 0x4d:
+                        // we have something like 4d 51 21 03 addr 21 20 ??? 52 ae
+                        // lets grab the address and skip the remaining
+                        assert(value.size() >= 72);
+                        assert(value[0x03] == 0x02 || value[0x03] == 0x03);
+
+                        value = value.substr(3);
+                        addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, str_to_ripesha(value, 33));
+                        value = value.substr(33 + 36);
+                        break;
+
+                    case 0x6d:
+                        assert(value.size() >= 72);
+                        assert(value[0x03] == 0x04 || value[0x03] == 0x05);
+                        value = value.substr(3);
+
+                        memset(pub, 0, PUBLIC_KEY_SIZE);
+//                        ret = pubkey_decompress(type, value.c_str(), (unsigned char*) &pub, &publen);
+//                        if(ret == false) {
+//                            cerr << "Could not parse compressed public key." << endl;
+//                        }
+                        addr = get_addr(current_prefix.pubkey_prefix, current_prefix.pubkey_prefix_size, str_to_ripesha(string(value.c_str(), PUBLIC_KEY_SIZE)));
+
+                        value = value.substr(101);
+                        break;
+
                     default:
                         cerr << "ERROR type: " << (int)type << " on TX: " << string_to_hex(tx) << " | Version: " << (int)version << endl;
+                        cerr << "Value: " << string_to_hex(orig_value) << endl;
+                        cerr << "Remaining: " << string_to_hex(value) << endl;
+
                         has_error = true;
                         break;
                 }
 
-                cout << string_to_hex(tx) << ";TBD;" << addr << ";" << amount << endl;
+                cout << string_to_hex(tx) << ";" << vout_idx << ";" << addr << ";" << amount << endl;
+                vout_idx ++;
+                addr = DEFAULT_ADDRESS;
             }
-
             continue;
         }
 
