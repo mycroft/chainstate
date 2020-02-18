@@ -3,43 +3,44 @@
 
 using namespace std;
 
-uint64_t read_varint(uint64_t n)
-{
-    int len = sizeof(n);
-    uint64_t out = 0;
-    while (len >= 0) {
-        unsigned char ch = ((unsigned char*)&n)[(len--)-1];
-        if (len < 0) {
-            break;
-        }
-
-        out = (out << 7) | (ch & 0x7f);
-        if (ch & 0x80) {
-            out ++;
-        }
-    }
-
-    return out;
-}
-
 uint64_t get_next_varint(string& str)
 {
-    unsigned char c;
-    uint32_t idx = 0;
-    uint64_t n = 0;
+    int len = 0;
+    uint64_t out = 0;
 
-    do {
-        c = str[idx];
-        n += c;
+    while(true) {
+        unsigned char ch = str[len];
 
-        if (c < 0x80) {
-            str = str.substr(++idx);
-            return read_varint(n);
-        } else {
-            idx ++;
-            n *= 256;
+        out = (out << 7) | (ch & 0x7f);
+        if (ch & 0x80)
+            out ++;
+        else {
+            str = str.substr(++len);
+            return out;
         }
-    } while(true);
+
+        len ++;
+    }
+}
+
+
+uint64_t compress_amount(uint64_t n)
+{
+    if (n == 0)
+        return 0;
+    int e = 0;
+    while (((n % 10) == 0) && e < 9) {
+        n /= 10;
+        e++;
+    }
+    if (e < 9) {
+        int d = (n % 10);
+        // assert(d >= 1 && d <= 9);
+        n /= 10;
+        return 1 + (n*9 + d - 1)*10 + e;
+    } else {
+        return 1 + (n - 1)*10 + 9;
+    }
 }
 
 uint64_t decompress_amount(uint64_t x)
