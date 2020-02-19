@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     size_t publen = PUBLIC_KEY_SIZE;
 
     string addr = DEFAULT_ADDRESS;
-    bool dump = true;
+    bool dump = false;
     unsigned char script_type;
     string old_value;
 
