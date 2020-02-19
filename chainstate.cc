@@ -26,8 +26,8 @@ int main(int argc, char **argv)
     leveldb::DB* db;
     leveldb::Options options;
 
-    uint32_t code, fCoinBase, nHeight;
-    uint64_t amount;
+    uint32_t fCoinBase, nHeight;
+    uint64_t amount, code;
 
     unsigned char pub[PUBLIC_KEY_SIZE];
     size_t publen = PUBLIC_KEY_SIZE;
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
             string orig_value = value;
 
             uint64_t version = get_next_varint(value);
-            uint64_t code = get_next_varint(value);
+            code = get_next_varint(value);
 
             bool isCoinbase = code & 0x01;
             bool isVout0NotSpent = code & 0x02;
