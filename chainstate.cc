@@ -173,8 +173,8 @@ int main(int argc, char **argv)
 
             if (dump) {
                 cout << "========================================================================================" << endl;
-                cout << "TX: " << string_to_hex(tx) << " | Version: " << (int)version << " | code: " << (int)code << " | maskcode: " << (int)nMaskCode << endl;
-                cout << "coinbase: " << isCoinbase << " / " <<  isVout0NotSpent << "|" << isVout1NotSpent << " / N=" << (int)unspentnessbytes << endl;
+                cout << "TX: " << string_to_hex(tx) << " | Version: " << version << " | code: " << code << " | maskcode: " << nMaskCode << endl;
+                cout << "coinbase: " << isCoinbase << " / " <<  isVout0NotSpent << "|" << isVout1NotSpent << " / N=" << unspentnessbytes << endl;
                 cout << "Value: " << string_to_hex(orig_value) << endl;
             }
 
@@ -211,7 +211,7 @@ int main(int argc, char **argv)
                 type = value[0];
 
                 if (dump) {
-                    cout << "Amount: " << amount << " | Type: " << (int)type << endl;
+                    cout << "Amount: " << amount << " | Type: " << type << endl;
                     // cout << string_to_hex(value) << endl;
                 }
 
@@ -274,7 +274,7 @@ int main(int argc, char **argv)
                         break;
 
                     default:
-                        cerr << "ERROR type: " << (int)type << " on TX: " << string_to_hex(tx) << " | Version: " << (int)version << endl;
+                        cerr << "ERROR type: " << type << " on TX: " << string_to_hex(tx) << " | Version: " << version << endl;
                         cerr << "Value: " << string_to_hex(orig_value) << endl;
                         cerr << "Remaining: " << string_to_hex(value) << endl;
 
@@ -328,7 +328,7 @@ int main(int argc, char **argv)
         script_type = value[0];
 
         if (dump) {
-            cout << "Script type: " << (int)script_type << endl;
+            cout << "Script type: " << script_type << endl;
         }
 
         // Do not assert as there is a few invalid scripts out there..
