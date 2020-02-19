@@ -40,6 +40,7 @@ int main(int argc, char **argv)
     bool ret;
 
     options.create_if_missing = false;
+    options.compression = leveldb::kNoCompression;
 
     // Can be found in src/chainparams.cpp, base58Prefixes
     prefix_t prefixes[] = {
