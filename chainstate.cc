@@ -97,14 +97,14 @@ int main(int argc, char **argv)
         cout << "Obfuscation key: " << string_to_hex(OBFUSCATE_KEY_KEY) << endl;
     }
 
-    leveldb::Status s = db->Get(leveldb::ReadOptions(), OBFUSCATE_KEY_KEY, &obfuscate_key_str);
-    if (s.ok()) {
+    status = db->Get(leveldb::ReadOptions(), OBFUSCATE_KEY_KEY, &obfuscate_key_str);
+    if (status.ok()) {
         // First byte: key size.
         obfuscate_key_str = obfuscate_key_str.substr(1);
         cerr << "using obfuscation key " << string_to_hex(obfuscate_key_str) << endl;
         obfuscate_key = vector<unsigned char>(obfuscate_key_str.begin(), obfuscate_key_str.end());
     } else {
-        if (s.IsNotFound()) {
+        if (status.IsNotFound()) {
             cerr << "obfuscation key not found... Please check bitcoin's log and report if bitcoin's obfuscation key not 0000000000000000." << endl;
         }
     }
