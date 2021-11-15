@@ -64,12 +64,14 @@ int main(int argc, char **argv)
     };
 
     prefix_t current_prefix = prefixes[0];
+    bool is_bitcoin = false;
 
     if (argc == 2) {
         int idx = 0;
 
         do {
             if (0 == strcmp(argv[1], current_prefix.name)) {
+                is_bitcoin = (idx == 0) || (idx == 1);
                 break;
             }
 
@@ -380,7 +382,7 @@ int main(int argc, char **argv)
                 addr = string();
 
                 // P2WPKH / P2WSH
-                if(value[0] == 0x00 && ((script_type == 0x1c && value.size() == 22) || (script_type == 0x28 && value.size() == 34))) {
+                if((is_bitcoin || value[0] == 0x00) && ((script_type == 0x1c && value.size() == 22) || (script_type == 0x28 && value.size() == 34))) {
                     addr = rebuild_bech32(value);
                 }
 
