@@ -11,10 +11,31 @@ Some code was ripped of the Bitcoin core client, by the way. So, this software i
 
 # Deps
 
-You need to get google's leveldb with C++ headers installed, or it won't compile/link.
+You need to get google's leveldb with C++ headers installed, or it won't compile/link:
 
+Download compile leveldb
+```
+mkdir -p "$HOME/tmp/tar_gz"
+cd "$HOME/tmp/tar_gz"
+if [[ ! -f "$HOME/tmp/tar_gz/leveldb-1.20.tar.gz" ]]; then
+  wget -O "$HOME/tmp/tar_gz/leveldb-1.20.tar.gz" "https://github.com/google/leveldb/archive/v1.20.tar.gz"
+fi
+tar xf "$HOME/tmp/tar_gz/leveldb-1.20.tar.gz"
+cd "$HOME/tmp/tar_gz/leveldb-1.20"
+make clean
+make distclean
+make
+```
+Install leveldb
+```
+cd "$HOME/tmp/tar_gz/leveldb-1.20"
+sudo scp -r out-static/lib* out-shared/lib* "/usr/local/lib"
+cd "$HOME/tmp/tar_gz/leveldb-1.20/include"
+sudo scp -r leveldb "/usr/local/include"
+sudo ldconfig
+```
 
-# Build
+# Build chainstate
 
 ```base
 $ git submodule init
